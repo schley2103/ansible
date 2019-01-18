@@ -9,7 +9,7 @@ __metaclass__ = type
 
 ANSIBLE_METADATA = {'metadata_version': '1.1',
                     'status': ['preview'],
-                    'supported_by': 'community'}
+                    'supported_by': 'certified'}
 
 
 DOCUMENTATION = """
@@ -200,7 +200,7 @@ commands:
 backup_path:
   description: The full path to the backup file
   returned: when backup is yes
-  type: string
+  type: str
   sample: /playbooks/ansible/backup/sros_config.2016-07-16@22:28:34
 """
 from ansible.module_utils.basic import AnsibleModule

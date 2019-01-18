@@ -60,6 +60,12 @@ options:
     description:
       - Set the stdin of the command directly to the specified value.
     version_added: "2.4"
+  stdin_add_newline:
+    type: bool
+    default: yes
+    description:
+      - If set to C(yes), append a newline to stdin data.
+    version_added: "2.8"
 notes:
   -  If you want to execute a command securely and predictably, it may be
      better to use the M(command) module instead. Best practices when writing
@@ -75,6 +81,11 @@ notes:
   - An alternative to using inline shell scripts with this module is to use
     the M(script) module possibly together with the M(template) module.
   - For Windows targets, use the M(win_shell) module instead.
+seealso:
+- module: command
+- module: raw
+- module: script
+- module: win_shell
 author:
     - Ansible Core Team
     - Michael DeHaan
@@ -135,37 +146,37 @@ RETURN = r'''
 msg:
     description: changed
     returned: always
-    type: boolean
+    type: bool
     sample: True
 start:
     description: The command execution start time
     returned: always
-    type: string
+    type: str
     sample: '2016-02-25 09:18:26.429568'
 end:
     description: The command execution end time
     returned: always
-    type: string
+    type: str
     sample: '2016-02-25 09:18:26.755339'
 delta:
     description: The command execution delta time
     returned: always
-    type: string
+    type: str
     sample: '0:00:00.325771'
 stdout:
     description: The command standard output
     returned: always
-    type: string
+    type: str
     sample: 'Clustering node rabbit@slave1 with rabbit@master ...'
 stderr:
     description: The command standard error
     returned: always
-    type: string
+    type: str
     sample: 'ls: cannot access foo: No such file or directory'
 cmd:
     description: The command executed by the task
     returned: always
-    type: string
+    type: str
     sample: 'rabbitmqctl join_cluster rabbit@master'
 rc:
     description: The command return code (0 means success)

@@ -32,8 +32,10 @@ try:
     from openshift.dynamic import DynamicClient
     from openshift.dynamic.exceptions import ResourceNotFoundError, ResourceNotUniqueError
     HAS_K8S_MODULE_HELPER = True
-except ImportError:
+    k8s_import_exception = None
+except ImportError as e:
     HAS_K8S_MODULE_HELPER = False
+    k8s_import_exception = e
 
 try:
     import yaml
@@ -148,7 +150,7 @@ class K8sAnsibleMixin(object):
         if auth_set('username', 'password', 'host') or auth_set('api_key', 'host'):
             # We have enough in the parameters to authenticate, no need to load incluster or kubeconfig
             pass
-        elif auth_set('kubeconfig', 'context'):
+        elif auth_set('kubeconfig') or auth_set('context'):
             kubernetes.config.load_kube_config(auth.get('kubeconfig'), auth.get('context'))
         else:
             # First try to do incluster config, then kubeconfig
@@ -183,13 +185,15 @@ class K8sAnsibleMixin(object):
 
     def kubernetes_facts(self, kind, api_version, name=None, namespace=None, label_selectors=None, field_selectors=None):
         resource = self.find_resource(kind, api_version)
+        if not resource:
+            return dict(resources=[])
         try:
             result = resource.get(name=name,
                                   namespace=namespace,
                                   label_selector=','.join(label_selectors),
                                   field_selector=','.join(field_selectors)).to_dict()
         except openshift.dynamic.exceptions.NotFoundError:
-            return dict(items=[])
+            return dict(resources=[])
 
         if 'items' in result:
             return dict(resources=result['items'])
@@ -240,7 +244,7 @@ class KubernetesAnsibleModule(AnsibleModule, K8sAnsibleMixin):
         AnsibleModule.__init__(self, *args, **kwargs)
 
         if not HAS_K8S_MODULE_HELPER:
-            self.fail_json(msg="This module requires the OpenShift Python client. Try `pip install openshift`")
+            self.fail_json(msg="This module requires the OpenShift Python client. Try `pip install openshift`", error=str(k8s_import_exception))
         self.openshift_version = openshift.__version__
 
         if not HAS_YAML:

@@ -27,16 +27,16 @@ options:
     aliases: [ path ]
   ftype:
     description:
-    - File type.
-    - The following file type options can be passed;
-      C(a) for all files,
-      C(b) for block devices,
-      C(c) for character devices,
-      C(d) for directories,
-      C(f) for regular files,
-      C(l) for symbolic links,
-      C(p) for named pipes,
-      C(s) for socket files.
+    - The file type that should have SELinux contexts applied.
+    - "The following file type options are available:"
+    - C(a) for all files,
+    - C(b) for block devices,
+    - C(c) for character devices,
+    - C(d) for directories,
+    - C(f) for regular files,
+    - C(l) for symbolic links,
+    - C(p) for named pipes,
+    - C(s) for socket files.
     type: str
     default: a
   setype:
@@ -64,6 +64,12 @@ options:
     - Note that this does not apply SELinux file contexts to existing files.
     type: bool
     default: 'yes'
+  ignore_selinux_state:
+    description:
+    - Useful for scenarios (chrooted environment) that you can't get the real SELinux state.
+    type: bool
+    default: false
+    version_added: '2.8'
 notes:
 - The changes are persistent across reboots.
 - The M(sefcontext) module does not modify existing files to the new
@@ -97,7 +103,6 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.pycompat24 import get_exception
 from ansible.module_utils._text import to_native
 
 try:
@@ -136,6 +141,10 @@ option_to_file_type_str = dict(
     p='named pipe',
     s='socket file',
 )
+
+
+def get_runtime_status(ignore_selinux_state=False):
+    return True if ignore_selinux_state is True else selinux.is_selinux_enabled()
 
 
 def semanage_fcontext_exists(sefcontext, target, ftype):
@@ -193,8 +202,7 @@ def semanage_fcontext_modify(module, result, target, ftype, setype, do_reload, s
                 prepared_diff += '# Addition to semanage file context mappings\n'
                 prepared_diff += '+%s      %s      %s:%s:%s:%s\n' % (target, ftype, seuser, 'object_r', setype, serange)
 
-    except Exception:
-        e = get_exception()
+    except Exception as e:
         module.fail_json(msg="%s: %s\n" % (e.__class__.__name__, to_native(e)))
 
     if module._diff and prepared_diff:
@@ -225,8 +233,7 @@ def semanage_fcontext_delete(module, result, target, ftype, do_reload, sestore='
                 prepared_diff += '# Deletion to semanage file context mappings\n'
                 prepared_diff += '-%s      %s      %s:%s:%s:%s\n' % (target, ftype, exists[0], exists[1], exists[2], exists[3])
 
-    except Exception:
-        e = get_exception()
+    except Exception as e:
         module.fail_json(msg="%s: %s\n" % (e.__class__.__name__, to_native(e)))
 
     if module._diff and prepared_diff:
@@ -238,6 +245,7 @@ def semanage_fcontext_delete(module, result, target, ftype, do_reload, sestore='
 def main():
     module = AnsibleModule(
         argument_spec=dict(
+            ignore_selinux_state=dict(type='bool', default=False),
             target=dict(required=True, aliases=['path']),
             ftype=dict(type='str', default='a', choices=option_to_file_type_str.keys()),
             setype=dict(type='str', required=True),
@@ -254,7 +262,9 @@ def main():
     if not HAVE_SEOBJECT:
         module.fail_json(msg="This module requires policycoreutils-python")
 
-    if not selinux.is_selinux_enabled():
+    ignore_selinux_state = module.params['ignore_selinux_state']
+
+    if not get_runtime_status(ignore_selinux_state):
         module.fail_json(msg="SELinux is disabled on this host.")
 
     target = module.params['target']
